@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
-import { db } from "../utils/connectDB.js";
-import { usersTable } from "../models/schema.js";
+import { db } from "../../utils/connectDB.js";
+import { usersTable } from "../../models/schema.js";
 import { eq } from "drizzle-orm";
 
 dotenv.config({path:"../env"});

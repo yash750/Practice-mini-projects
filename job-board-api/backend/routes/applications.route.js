@@ -9,4 +9,4 @@ router.post("/applyforjob/:id",authenticate, applyForJob);
 router.get("/getjobapplications/:id",authenticate, authorize("employer"), getJobApplications);
 router.put("/updateapplication/:id",authenticate, authorize("employer"), updateApplication);
 
-export default router;
+export default router;  
