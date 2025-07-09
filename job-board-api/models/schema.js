@@ -2,6 +2,7 @@ import { integer, pgTable, varchar, pgEnum,timestamp } from "drizzle-orm/pg-core
 import { boolean } from "drizzle-orm/gel-core";
 
 export const roles = pgEnum("roles", ["user", "employer", "admin"]);
+export const status = pgEnum("status", ["pending", "accepted", "rejected"]);
 
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -31,7 +32,7 @@ export const applicationsTable = pgTable("applications", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   jobId: integer().references(() => jobsTable.id).notNull(),
   seekerId: integer().references(() => usersTable.id).notNull(),
-  status: varchar({ length: 255 }).notNull(),
+  status: varchar({ length: 255, enum: status }).default("pending").notNull(),
   appliedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
