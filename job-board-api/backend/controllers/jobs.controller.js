@@ -3,13 +3,14 @@ import { db } from "../utils/connectDB.js";
 import { eq } from "drizzle-orm";
 
 const getJobs = async(req, res) => {
-    const user = req.user;
-    if(!user){
-        return res.status(401).json({status:false, message:"Unauthorized request"})
-    }
+    
     try{
-        const jobs = await db.select().from(jobsTable);
-        return res.status(200).json({status:true, message:"Jobs fetched successfully", jobs})
+        // fetch only active jobs
+        const jobs = await db.select().from(jobsTable).where(eq(jobsTable.isActive, true));
+        if(jobs.length === 0){
+            return res.status(404).json({status:false, message:"No active jobs found"})
+        }
+        return res.status(200).json({status:true, message:"Active Jobs fetched successfully", jobs})
     }catch (error) {
         console.log("Error fetching jobs: ", error);
         return res.status(500).json({status:false, message:"Error fetching jobs"})
