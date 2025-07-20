@@ -22,7 +22,10 @@ app.get('/', (req, res) => {
 app.use('/api/db', db_routes)
 app.use('/api/bikes', bike_routes)
 
-app.listen(PORT, () => {
-    console.log(`Server started on port: ${PORT}`)
-})
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`Server started on port: ${PORT}`)
+    })
+}
 
+export default app;

@@ -1,0 +1,25 @@
+
+
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+
+button {
+  margin: 2px;
+  padding: 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  border: #61dafbaa solid 1px;
+  border-radius:  10px;
+  padding: 10px;
+}
