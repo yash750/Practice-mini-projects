@@ -1,26 +1,26 @@
 import pool from '../db/connectDatabase.js'
 import { v4 as uuidv4 } from 'uuid';
 
-async function isUserInServiceArea(userLat, userLng) {
+// Export helper functions for testing
+export async function isUserInServiceArea(userLat, userLng) {
+    try {
     const point = `POINT(${userLng} ${userLat})`;
     let rows;
-    try {
-        [rows] = await pool.execute(`
-          SELECT sa.*
-          FROM service_areas sa
-          WHERE ST_Contains(
-            sa.area,
-            ST_GeomFromText(?, 4326)
-          )
-        `, [point]);
-    } catch (error) {
-        console.error('Error fetching service areas:', error);
-        return { allow_ride: false, message: "Error checking service area availability." };
-    }
-  
+    
+    [rows] = await pool.execute(`
+    SELECT sa.*
+    FROM service_areas sa
+    WHERE ST_Contains(
+        sa.area,
+        ST_GeomFromText(?, 4326)
+    )
+    `, [point]);
+    console.log(rows);
+    
     if (rows.length === 0) {
       return {
         allow_ride: false,
+        service_area_name : "",
         message: "We are not serviceable in your area"
       };
     } else {
@@ -30,8 +30,12 @@ async function isUserInServiceArea(userLat, userLng) {
         city_id: rows[0].city_id
       };
     }
+} catch (error) {
+    console.error('Error fetching service areas:', error);
+    return { allow_ride: false, service_area_name : "", message: "Error checking service area availability." };
+    }
 }
-async function fetchAvailableBikes(userInServiceArea) {
+export async function fetchAvailableBikes(userInServiceArea) {
     try {
         const [bikes] = await pool.execute(
             `
@@ -54,7 +58,7 @@ async function fetchAvailableBikes(userInServiceArea) {
     }
 }
 
-async function makeEntryInHistory( logEntryId, userId, lat, long, responseJson) {
+export async function makeEntryInHistory( logEntryId, userId, lat, long, responseJson) {
     try {
         await pool.execute(
         `
@@ -66,6 +70,7 @@ async function makeEntryInHistory( logEntryId, userId, lat, long, responseJson) 
         return true;
     } catch (error) {
         console.error('Error logging bike availability:', error);
+        return false;
     }
 }
   
@@ -77,16 +82,11 @@ const get_available_bikes = async (req, res) => {
             return res.status(400).json({ error: 'Missing required parameters.' });
         }
         let rows;
-        try {
-            const query = `SELECT id, isBlocked, balance FROM users WHERE email = ?`;
-            [rows] = await pool.execute(query, [email]);
+        const query = `SELECT id, isBlocked, balance FROM users WHERE email = ?`;
+        [rows] = await pool.execute(query, [email]);
             if (rows.length === 0) {
                 return res.status(401).json({ message: 'User not found.', data:{balance: 0, allow_ride: false, bikes: []} });
             }
-        } catch (error) {
-            console.error('Error fetching user:', error);
-            return res.status(500).json({ error: 'Error fetching user', message: error.message });
-        }
         const user = rows[0];
         const userId = user.id;
         const isBlocked = user.isBlocked;
@@ -105,24 +105,15 @@ const get_available_bikes = async (req, res) => {
         }
     
         let bikes;
-        try {
-            bikes = await fetchAvailableBikes(userInServiceArea);
-        } catch (error) {
-            return res.status(403).json({ error: 'Error fetching available bikes', message: error.message });
-        }
-        
+        bikes = await fetchAvailableBikes(userInServiceArea);
+        console.log(bikes);
         if (bikes.length === 0) {
             return res.status(200).json({message: 'No bikes available in your area.',data : {balance: balance, allow_ride: false, bikes: []}});
         }
         // create entry in bikeAvailabilityHistory table
         const logEntryId = uuidv4();
         const responseJson = JSON.stringify(bikes);
-    
-        try {
-            await makeEntryInHistory(logEntryId, userId, lat, long, responseJson);
-        } catch (logError) {
-            console.error('Failed to log bike availability history, but returning success to user.', logError);
-        }
+        await makeEntryInHistory(logEntryId, userId, lat, long, responseJson);
         return res.status(200).json({message: 'Success', data : {balance: balance, allow_ride: true, bikes: bikes}});
     
     } catch (error) {
@@ -132,6 +123,7 @@ const get_available_bikes = async (req, res) => {
 };
 
 const healthCheck = async (req, res) => {
+    console.log('Health check called');
     return res.status(200).json({message: 'Success' });
 };
 

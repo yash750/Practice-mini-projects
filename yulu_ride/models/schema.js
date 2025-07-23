@@ -54,7 +54,7 @@ export const UsersSchema = {
   export const ServiceAreasSchema = {
     tableName: 'service_areas',
     columns: {
-      id: { type: 'INT', primary: true, nullable: false, autoIncrement: true },
+      id: { type: 'CHAR(255)', primary: true, nullable: false, autoIncrement: true },
       name: { type: 'VARCHAR(100)', nullable: true },
       area: { type: 'POLYGON', nullable: false, spatial: true, indexed: true },
       city_id: { type: 'BIGINT', nullable: false, indexed: true },
@@ -64,7 +64,7 @@ export const UsersSchema = {
   export const ServicesSchema = {
     tableName: 'services',
     columns: {
-      id: { type: 'BIGINT', primary: true, nullable: false, autoIncrement: true },
+      id: { type: 'CHAR(255)', primary: true, nullable: false, autoIncrement: true },
       name: { type: 'VARCHAR(255)', unique: true, nullable: false },
       createdAt: {
         type: 'TIMESTAMP',
@@ -102,7 +102,7 @@ export const UsersSchema = {
   export const CitiesSchema = {
     tableName: 'cities',
     columns: {
-      id: { type: 'BIGINT', primary: true, nullable: false, autoIncrement: true },
+      id: { type: 'CHAR(255)', primary: true, nullable: false, autoIncrement: true },
       name: { type: 'VARCHAR(255)', nullable: false },
       centroidLatitude: { type: 'DECIMAL(10,8)', nullable: false },
       centroidLongitude: { type: 'DECIMAL(11,8)', nullable: false },
