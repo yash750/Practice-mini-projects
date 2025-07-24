@@ -15,7 +15,6 @@ export async function isUserInServiceArea(userLat, userLng) {
         ST_GeomFromText(?, 4326)
     )
     `, [point]);
-    console.log(rows);
     
     if (rows.length === 0) {
       return {
@@ -106,7 +105,6 @@ const get_available_bikes = async (req, res) => {
     
         let bikes;
         bikes = await fetchAvailableBikes(userInServiceArea);
-        console.log(bikes);
         if (bikes.length === 0) {
             return res.status(200).json({message: 'No bikes available in your area.',data : {balance: balance, allow_ride: false, bikes: []}});
         }

@@ -31,6 +31,12 @@ describe('get_available_bikes.controller', () => {
     };
   });
 
+  afterAll(() => {
+    jest.clearAllMocks();
+    pool.end();
+    
+  });
+
   describe('healthCheck', () => {
     it('should return a 200 status with success message', async () => {
       await healthCheck(req, res);
