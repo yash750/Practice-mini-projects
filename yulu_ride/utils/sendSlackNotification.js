@@ -10,6 +10,7 @@ const CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
 const REPORT_PATH = path.resolve('./html-report/report.html');
 const RESULTS_PATH = path.resolve('./html-report/jest-results.json');
 const SUMMARY_PATH = path.resolve('./utils/test-summary.txt');
+const REPORT_URL = process.env.REPORT_URL;
 
 // 🔢 Extract test count and coverage summaryfunction generateTestSummary() {
   function generateTestSummary() {
@@ -58,7 +59,8 @@ async function uploadToSlack() {
   try {
     const result = await slack.files.uploadV2({
       channel_id: CHANNEL_ID,
-      initial_comment: `✅ *Test Report*\n${summary}`,
+      // initial_comment: `✅ *Test Report*\n${summary}`,
+      initial_comment: `✅ *Test Report*\n${summary}\n\n🌐 *View full report:* ${REPORT_URL}`,
       file_uploads: [
         {
           file: fs.createReadStream(REPORT_PATH),

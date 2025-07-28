@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 import { get_available_bikes, healthCheck, isUserInServiceArea, fetchAvailableBikes, makeEntryInHistory } from '../../controllers/get_available_bikes.controller.js';
-import pool from '../../db/connectTestDB.js';
+import pool from '../../db/connectDatabase.js';
 
 // Mock the database pool
-jest.mock('../../db/connectTestDB.js', () => ({
+jest.mock('../../db/connectDatabase.js', () => ({
   execute: jest.fn(),
 }));
 
@@ -33,7 +33,6 @@ describe('get_available_bikes.controller', () => {
 
   afterAll(() => {
     jest.clearAllMocks();
-    pool.end();
     
   });
 
