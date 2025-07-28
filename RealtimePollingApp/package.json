@@ -1,0 +1,19 @@
+{
+  "name": "realtimepollingapp",
+  "version": "1.0.0",
+  "description": "A real time polling app for learning sockets concepts.",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server/server.js",
+    "start": "node server/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Yashwardhan Singh Chundawat",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "http": "^0.0.1-security",
+    "nodemon": "^3.1.10",
+    "socket.io": "^4.8.1"
+  }
+}

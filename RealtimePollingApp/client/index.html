@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Polling App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Real-time Polling App</h1>
+        </header>
+
+        <div class="create-poll-section">
+            <h2>Create New Poll</h2>
+            <form id="pollForm">
+                <input type="text" id="pollQuestion" placeholder="Enter your poll question" required>
+                <div class="options-container">
+                    <input type="text" id="option1" placeholder="Option 1" required>
+                    <input type="text" id="option2" placeholder="Option 2" required>
+                    <input type="text" id="option3" placeholder="Option 3" required>
+                    <input type="text" id="option4" placeholder="Option 4" required>
+                </div>
+                <button type="submit">Create Poll</button>
+            </form>
+        </div>
+
+        <div class="polls-container" id="pollsContainer">
+            <!-- Active polls will be displayed here -->
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+    <script src="socket.io/socket.io.js"></script>
+</body>
+</html>
