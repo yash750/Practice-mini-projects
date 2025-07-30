@@ -1,159 +1,276 @@
 import request from 'supertest';
-import pool from '../../db/connectDatabase.js';
 import app from '../../app.js';
+import testPool from '../../db/connectDatabase.js';
 
-const blockedUser = {
-  email: 'blocked@example.com',
-  lat: 12.9650,
-  long: 77.6100
-};
-const lowBalanceUser = {
-  email: 'vikram@example.com',
-  lat: 12.9716,
-  long: 77.5946
-};
-const validUser = {
-  email: 'ravi@example.com',
-  lat: 12.9716,
-  long: 77.5946
-};
-const outsideServiceAreaUser = {
-  email: 'priya@example.com',
-  lat: 13.3000,
-  long: 77.6200
-};
+describe('GET /api/bikes/get_available_bikes - Integration Tests', () => {
+  let testUserId, testServiceAreaId, testBikeId;
 
-describe('Get Available Bikes API Integration Tests', () => {
   beforeAll(async () => {
-    // No test data creation here — uses real DB
+    // Setup test data - placeholders for manual data entry
+    // TODO: Manually insert test user with email ''ravi@example.com', balance 120, isBlocked false
+    // TODO: Manually insert service area with name 'Bengaluru Operational Zone' covering coordinates (12.9716, 77.5946)
+    // TODO: Manually insert available bike in the test service area
+    
+    // Get test data IDs for cleanup
+    const [userRows] = await testPool.execute(
+      'SELECT id FROM users WHERE email = ? LIMIT 1',
+      ['ravi@example.com']
+    );
+    testUserId = userRows[0]?.id;
+
+    const [areaRows] = await testPool.execute(
+      'SELECT id FROM service_areas WHERE name = ? LIMIT 1',
+      ['Bengaluru Operational Zone']
+    );
+    testServiceAreaId = areaRows[0]?.id;
+
+    const [bikeRows] = await testPool.execute(
+      'SELECT id FROM bikes WHERE status = "available" LIMIT 1'
+    );
+    testBikeId = bikeRows[0]?.id;
   });
 
   afterAll(async () => {
-    await pool.end();
-    console.log('✅ Database connection closed.');
+    // Cleanup: Remove any test entries created during tests to maintain DB consistency;
+    if (testUserId) {
+      await testPool.execute('DELETE FROM bikeAvailabilityHistory WHERE userId = ?', [testUserId]);
+    }
+    await testPool.end();
   });
 
-  describe('GET /api/bikes/health', () => {
-    it('should return 200 and success message', async () => {
-      const response = await request(app).get('/api/bikes/health');
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ message: 'Success' });
-    });
+  afterEach(async () => {
+    // Ensure DB state consistency after each test
+    if (testUserId) {
+      await testPool.execute('DELETE FROM bikeAvailabilityHistory WHERE userId = ?', [testUserId]);
+    }
   });
 
   describe('POST /api/bikes/get_available_bikes', () => {
-    it('should return 400 when required parameters are missing', async () => {
+    test('should return 400 for missing required parameters', async () => {
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
         .send({ lat: 12.9716 }); // missing long and email
+
       expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('error', 'Missing required parameters.');
+      expect(response.body).toEqual({ error: 'Missing required parameters.' });
     });
 
-    it('should return 401 when user is not found', async () => {
+    test('should return 401 for non-existent user', async () => {
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
         .send({
           lat: 12.9716,
           long: 77.5946,
-          email: 'nonexistent-user-integration-test@example.com'
+          email: 'nonexistent@example.com'
         });
+
       expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('message', 'User not found.');
-      expect(response.body.data).toEqual({
-        balance: 0,
-        allow_ride: false,
-        bikes: []
+      expect(response.body).toEqual({
+        message: 'User not found.',
+        data: { balance: 0, allow_ride: false, bikes: [] }
       });
     });
 
-    it('should return appropriate message for blocked user', async () => {
+    test('should return blocked message for blocked user', async () => {
+      // TODO: Manually create blocked user with email 'blocked.user@example.com'
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
-        .send({ ...blockedUser });
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: 'blocked@example.com'
+        });
 
-      if (response.body.message === 'Your account is blocked.') {
-        expect(response.status).toBe(200);
-        expect(response.body.data.allow_ride).toBe(false);
-        expect(response.body.data).toHaveProperty('balance');
-        expect(response.body.data).toHaveProperty('bikes');
-      }
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Your account is blocked.');
+      expect(response.body.data.allow_ride).toBe(false);
     });
 
-    it('should return appropriate message for user with low balance', async () => {
+    test('should return low balance message for user with insufficient balance', async () => {
+      // TODO: Manually create user with email 'lowbalance.user@example.com' and balance < 50
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
-        .send({ ...lowBalanceUser });
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: 'vikram@example.com'
+        });
 
-      if (response.body.message === 'You balance is low.') {
-        expect(response.status).toBe(200);
-        expect(response.body.data.allow_ride).toBe(false);
-        expect(response.body.data).toHaveProperty('balance');
-        expect(response.body.data.balance).toBeLessThan(50);
-      }
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('You balance is low.');
+      expect(response.body.data.allow_ride).toBe(false);
     });
 
-    it('should return appropriate message for user outside service area', async () => {
+    test('should return service area not available for coordinates outside service area', async () => {
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
-        .send({ ...outsideServiceAreaUser });
+        .send({
+          lat: 14.9650, // coordinates outside any service area
+          long: 79.5946,
+          email: 'priya@example.com'
+        });
 
-      if (response.body.message === 'We are not serviceable in your area') {
-        expect(response.status).toBe(200);
-        expect(response.body.data.allow_ride).toBe(false);
-      }
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('We are not serviceable in your area');
+      expect(response.body.data.allow_ride).toBe(false);
     });
 
-    it('should return bikes when all conditions are met', async () => {
+    test('should return no bikes available when no bikes in service area', async () => {
+      // TODO: Manually create service area with no available bikes
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
-        .send({ ...validUser });
+        .send({
+          lat: 13.0000, // coordinates in service area with no bikes
+          long: 77.0000,
+          email: 'priya@example.com'
+        });
 
-      if (response.body.message === 'Success' && response.body.data.allow_ride === true) {
-        expect(response.status).toBe(200);
-        expect(response.body.data.allow_ride).toBe(true);
-        expect(response.body.data).toHaveProperty('balance');
-        expect(response.body.data).toHaveProperty('bikes');
-        expect(Array.isArray(response.body.data.bikes)).toBe(true);
-        expect(response.body.data.bikes.length).toBeGreaterThan(0);
-
-        const bike = response.body.data.bikes[0];
-        expect(bike).toHaveProperty('id');
-        expect(bike).toHaveProperty('bikeNumber');
-        expect(bike).toHaveProperty('latitude');
-        expect(bike).toHaveProperty('longitude');
-        expect(bike).toHaveProperty('status', 'available');
-        expect(bike).toHaveProperty('isFaulty', 0);
-      }
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('No bikes available in your area.');
+      expect(response.body.data.allow_ride).toBe(false);
     });
 
-    it('should create history entry when bikes are found', async () => {
+    test('should return success with available bikes and create history entry', async () => {
+      const initialHistoryCount = await testPool.execute(
+        'SELECT COUNT(*) as count FROM bikeAvailabilityHistory WHERE userId = ?',
+        [testUserId]
+      );
+
       const response = await request(app)
         .post('/api/bikes/get_available_bikes')
-        .send({ ...validUser });
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: 'ravi@example.com'
+        });
 
-      const connection = await pool.getConnection();
-      try {
-        if (response.body.message === 'Success' && response.body.data.allow_ride === true) {
-          const [userIdRows] = await connection.execute(
-            'SELECT id FROM users WHERE email = ?',
-            [validUser.email]
-          );
-          const [historyRows] = await connection.execute(
-            'SELECT * FROM bikeAvailabilityHistory WHERE userId = ? ORDER BY searchTime DESC LIMIT 1',
-            [userIdRows[0].id]
-          );
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      expect(response.body.data.allow_ride).toBe(true);
+      expect(response.body.data.bikes).toBeInstanceOf(Array);
+      expect(response.body.data.bikes.length).toBeGreaterThan(0);
+      expect(response.body.data.balance).toBeGreaterThanOrEqual(50);
 
-          expect(historyRows.length).toBeGreaterThan(0);
-          const historyEntry = historyRows[0];
-          expect(historyEntry).toHaveProperty('id');
-          expect(historyEntry).toHaveProperty('latitude', validUser.lat);
-          expect(historyEntry).toHaveProperty('longitude', validUser.long);
-          expect(historyEntry).toHaveProperty('response');
-        }
-      } finally {
-        connection.release();
+      // Verify history entry was created
+      const [finalHistoryCount] = await testPool.execute(
+        'SELECT COUNT(*) as count FROM bikeAvailabilityHistory WHERE userId = ?',
+        [testUserId]
+      );
+      expect(finalHistoryCount[0].count).toBe(initialHistoryCount[0][0].count + 1);
+
+      // Verify history entry content
+      const [historyEntry] = await testPool.execute(
+        'SELECT * FROM bikeAvailabilityHistory WHERE userId = ? ORDER BY id DESC LIMIT 1',
+        [testUserId]
+      );
+      expect(historyEntry[0].latitude).toBe(12.9716);
+      expect(historyEntry[0].longitude).toBe(77.5946);
+      expect(JSON.parse(historyEntry[0].response)).toBeInstanceOf(Array);
+    });
+
+    test('should handle edge case with balance exactly 50', async () => {
+      // TODO: Manually create user with email 'balance50.user@example.com' and balance exactly 50
+      const response = await request(app)
+        .post('/api/bikes/get_available_bikes')
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: 'balance50@example.com'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Success');
+      expect(response.body.data.balance).toBe(50);
+      expect(response.body.data.allow_ride).toBe(true);
+    });
+
+    test('should handle invalid coordinates gracefully', async () => {
+      const response = await request(app)
+        .post('/api/bikes/get_available_bikes')
+        .send({
+          lat: 'invalid',
+          long: 'invalid',
+          email: 'ravi@example.com'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.allow_ride).toBe(false);
+    });
+
+    test('should handle extreme coordinate values', async () => {
+      const response = await request(app)
+        .post('/api/bikes/get_available_bikes')
+        .send({
+          lat: 999.999,
+          long: -999.999,
+          email: 'ravi@example.com'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.allow_ride).toBe(false);
+    });
+
+    test('should handle SQL injection attempts in email', async () => {
+      const response = await request(app)
+        .post('/api/bikes/get_available_bikes')
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: "'; DROP TABLE users; --"
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe('User not found.');
+    });
+
+    test('should handle very long email strings', async () => {
+      const longEmail = 'a'.repeat(1000) + '@example.com';
+      const response = await request(app)
+        .post('/api/bikes/get_available_bikes')
+        .send({
+          lat: 12.9716,
+          long: 77.5946,
+          email: longEmail
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe('User not found.');
+    });
+
+    test('should maintain database consistency after multiple requests', async () => {
+      const initialUserCount = await testPool.execute('SELECT COUNT(*) as count FROM users');
+      const initialBikeCount = await testPool.execute('SELECT COUNT(*) as count FROM bikes');
+      const initialAreaCount = await testPool.execute('SELECT COUNT(*) as count FROM service_areas');
+
+      // Make multiple requests
+      for (let i = 0; i < 3; i++) {
+        await request(app)
+          .post('/api/bikes/get_available_bikes')
+          .send({
+            lat: 12.9716,
+            long: 77.5946,
+            email: 'ravi@example.com'
+          });
       }
+
+      // Verify core tables remain unchanged
+      const [finalUserCount] = await testPool.execute('SELECT COUNT(*) as count FROM users');
+      const [finalBikeCount] = await testPool.execute('SELECT COUNT(*) as count FROM bikes');
+      const [finalAreaCount] = await testPool.execute('SELECT COUNT(*) as count FROM service_areas');
+
+      expect(finalUserCount[0].count).toBe(initialUserCount[0][0].count);
+      expect(finalBikeCount[0].count).toBe(initialBikeCount[0][0].count);
+      expect(finalAreaCount[0].count).toBe(initialAreaCount[0][0].count);
+    });
+  });
+
+  describe('GET /api/bikes/health', () => {
+    test('should return health check success', async () => {
+      const response = await request(app)
+        .get('/api/bikes/health');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ message: 'Success' });
     });
   });
 });
