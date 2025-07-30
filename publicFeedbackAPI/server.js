@@ -32,6 +32,12 @@ mongoose.connect(process.env.MONGO_URI, {
     }
 );
 
+app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
+// render the index.html file
+app.get('/get', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
+});
 
 // Routes
 app.use('/', feedbackRoutes);
