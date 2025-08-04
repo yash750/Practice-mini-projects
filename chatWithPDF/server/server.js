@@ -8,7 +8,7 @@ import upload from './middlewares/multer.middleware.js';
 import OpenAI from 'openai';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { QdrantVectorStore } from '@langchain/qdrant';
-import { formatContextArray } from './utils/formatContext.js';
+import { formatContextArray, formatContextForUI } from './utils/formatContext.js';
 
 dotenv.config();
 
@@ -84,6 +84,7 @@ app.post('/chat', async (req, res) => {
 
         const rawContext = await vectorStore.asRetriever({k: 5}).invoke(query);
         const formattedContext = formatContextArray(rawContext);
+        const contextForUI = formatContextForUI(rawContext);
 
         // console.log(context);
         const SYSTEM_PROMPT = `
@@ -106,7 +107,8 @@ app.post('/chat', async (req, res) => {
             success: true,
             message: 'Chat completed successfully',
             answer: chatResult.choices[0].message.content,
-            context: formattedContext
+            context: formattedContext,
+            contextData: contextForUI
         });
        
     } catch (error) {

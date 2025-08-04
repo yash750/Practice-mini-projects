@@ -3,6 +3,7 @@ import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { QdrantVectorStore } from '@langchain/qdrant';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -12,6 +13,11 @@ const worker = new Worker('file-upload-queue', async (job) => {
     console.log('File uploaded:', data.filename);
 
     try {
+        // Check if file exists before processing
+        if (!fs.existsSync(data.path)) {
+            throw new Error(`File not found: ${data.path}`);
+        }
+        
         const loader = new PDFLoader(data.path);
         const docs = await loader.load();
 
