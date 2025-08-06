@@ -21,10 +21,6 @@ const worker = new Worker('file-upload-queue', async (job) => {
         const loader = new PDFLoader(data.path);
         const docs = await loader.load();
 
-        console.log("-----------------####--------------------")
-        console.log(docs[0].metadata.pdf)
-        console.log("-----------------####--------------------")
-
         const embeddings = new OpenAIEmbeddings({
             model: 'text-embedding-3-small', 
             apiKey: process.env.OPENAI_API_KEY
