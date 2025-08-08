@@ -23,15 +23,20 @@
     "@langchain/core": "^0.3.66",
     "@langchain/openai": "^0.6.3",
     "@langchain/qdrant": "^0.1.2",
+    "bcrypt": "^6.0.0",
     "bullmq": "^5.56.9",
     "cloudinary": "^2.7.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "langchain": "^0.3.30",
+    "mongoose": "^8.17.0",
     "multer": "^2.0.2",
     "nodemon": "^3.1.10",
-    "openai": "^5.11.0",
+    "openai": "^4.62.1",
     "pdf-parse": "^1.1.1"
   }
 }
