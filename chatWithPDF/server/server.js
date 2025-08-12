@@ -16,7 +16,10 @@ connectDB();
 const app = express();
 
 app.use(cookieParser());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:8080',
+  credentials: true
+}));
 app.use(express.json());
 
 
@@ -26,7 +29,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/pdf', pdfRouter);
-app.use('api/video', videoRouter);
+app.use('/api/video', videoRouter);
 
 
 app.listen(port, () => {

@@ -1,21 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { BambooLogo } from "./BambooLogo";
 import { FileText, Video, Upload, Sparkles } from "lucide-react";
 import { AuthModal } from "./AuthModal";
-
-// BACKEND INTEGRATION COMMENT:
-// This component will need to:
-// 1. Check if user is authenticated (useAuth hook)
-// 2. Redirect authenticated users to dashboard
-// 3. Handle session management
+import { useAuth } from "../contexts/AuthContext";
+import { UserProfile } from "./UserProfile";
 
 export const HomePage = () => {
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // TODO: Get from auth context
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-bamboo-pink"></div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return null; // Will redirect to dashboard
+  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -29,22 +43,26 @@ export const HomePage = () => {
         <div className="flex items-center justify-between mb-16">
           <BambooLogo size="lg" showText={true} />
           
-          <div className="flex gap-4">
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowAuth(true)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Register
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAuth(true)}
-              className="border-bamboo-border hover:bg-bamboo-card"
-            >
-              Sign in
-            </Button>
-          </div>
+          {isAuthenticated ? (
+            <UserProfile />
+          ) : (
+            <div className="flex gap-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowAuth(true)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Register
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAuth(true)}
+                className="border-bamboo-border hover:bg-bamboo-card"
+              >
+                Sign in
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Hero Section */}
@@ -112,7 +130,6 @@ export const HomePage = () => {
         open={showAuth} 
         onOpenChange={setShowAuth}
         onAuthSuccess={() => {
-          setIsAuthenticated(true);
           setShowAuth(false);
         }}
       />

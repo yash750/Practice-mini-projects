@@ -3,14 +3,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-
-// BACKEND INTEGRATION COMMENT:
-// This component will need to:
-// 1. Call authentication API endpoint (POST /auth/login)
-// 2. Handle JWT token storage in localStorage/cookies
-// 3. Implement form validation with proper error handling
-// 4. Redirect to dashboard on successful login
-// 5. Show loading states during authentication
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "./ui/use-toast";
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -23,32 +17,27 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      // BACKEND INTEGRATION: Replace with actual API call
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-      // const data = await response.json();
-      // if (data.token) {
-      //   localStorage.setItem('token', data.token);
-      //   onSuccess();
-      // }
-      
-      // Simulated login for UI demo
-      setTimeout(() => {
-        console.log("Login attempted with:", formData);
-        setIsLoading(false);
-        onSuccess();
-      }, 1000);
+      await login(formData.email, formData.password);
+      toast({
+        title: "Success",
+        description: "Logged in successfully!",
+      });
+      onSuccess();
     } catch (error) {
-      console.error("Login error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Login failed",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
     }
   };

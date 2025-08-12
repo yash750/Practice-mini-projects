@@ -5,12 +5,12 @@ function formatContextArray(contextArray) {
       const content = doc.pageContent || '';
   
       return `📄 Source ${index + 1}:
-📖 Document: ${title}
-📃 Page: ${page}
+              📖 Document: ${title}
+              📃 Page: ${page}
 
-${content.substring(0, 300)}${content.length > 300 ? '...' : ''}`;
-    }).join('\n\n' + '─'.repeat(50) + '\n\n');
-}
+              ${content}`;
+    });
+  }
 
 function formatContextForUI(contextArray) {
     return contextArray.map((doc, index) => ({

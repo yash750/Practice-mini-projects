@@ -2,19 +2,20 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
-import { Send, Bot, User, ExternalLink, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Send, Bot, User, ExternalLink, Copy, ThumbsUp, ThumbsDown, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiService } from "../services/api";
+import { useToast } from "./ui/use-toast";
+import { useChatManager } from "../hooks/useChatManager";
 
-// BACKEND INTEGRATION COMMENT:
-// This component will need to:
-// 1. Connect to WebSocket for real-time chat
-// 2. Send messages to AI processing endpoint
-// 3. Handle file context in messages (PDF content, video transcriptions)
-// 4. Implement message history storage
-// 5. Add message rating/feedback system
-// 6. Handle streaming responses from AI
+interface ContextData {
+  id: number;
+  title: string;
+  page: string | number;
+  content: string;
+  preview: string;
+}
 
 interface Message {
   id: string;
@@ -22,19 +23,36 @@ interface Message {
   content: string;
   timestamp: Date;
   references?: string[];
+  context?: string;
+  contextData?: ContextData[];
 }
 
 interface ChatInterfaceProps {
   fileContext?: File | null;
   fileType?: "pdf" | "video";
+  isFileReady?: boolean;
+  collectionName?: string;
+  fileId?: string;
+  fileName?: string;
 }
 
-export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+export const ChatInterface = ({ fileContext, fileType, isFileReady, collectionName, fileId, fileName }: ChatInterfaceProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const { getChatForFile, addMessage, getActiveMessages, getActiveChatInfo } = useChatManager();
+  
+  const messages = getActiveMessages();
+  const activeChatInfo = getActiveChatInfo();
+  
+  // Initialize chat when file changes
+  useEffect(() => {
+    if (fileId && fileName && collectionName) {
+      getChatForFile(fileId, fileName, collectionName);
+    }
+  }, [fileId, fileName, collectionName]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,6 +65,15 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    if (fileType === 'pdf' && !isFileReady) {
+      toast({
+        title: "Error",
+        description: "Please upload a PDF file first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
@@ -54,45 +81,54 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    if (activeChatInfo) {
+      addMessage(activeChatInfo.id, userMessage);
+    }
+    const currentMessage = inputValue;
     setInputValue("");
     setIsLoading(true);
 
     try {
-      // BACKEND INTEGRATION: Replace with actual API call
-      // const response = await fetch('/api/chat', {
-      //   method: 'POST',
-      //   headers: { 
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({
-      //     message: inputValue,
-      //     fileContext: fileContext ? {
-      //       name: fileContext.name,
-      //       type: fileType,
-      //       // Include processed content or file ID
-      //     } : null,
-      //     conversationHistory: messages
-      //   })
-      // });
-      // const data = await response.json();
-
-      // Simulated AI response for UI demo
-      setTimeout(() => {
+      if (fileType === 'pdf') {
+        console.log('Using collection name:', collectionName);
+        const response = await apiService.chatWithPDF(currentMessage, collectionName || 'pdf');
+        
+        if (response.success) {
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: "assistant",
+            content: response.answer,
+            timestamp: new Date(),
+            context: response.context,
+            contextData: response.contextData,
+            references: response.contextData?.map((ctx: any, index: number) => 
+              `Reference ${index + 1}: ${ctx.title || 'Document'} (Page ${ctx.page})`
+            )
+          };
+          
+          if (activeChatInfo) {
+            addMessage(activeChatInfo.id, aiMessage);
+          }
+        }
+      } else {
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           type: "assistant",
-          content: `I understand your question about "${inputValue}". ${fileContext ? `Based on the ${fileType} file "${fileContext.name}", here's what I found:` : ""} This is a simulated response for demonstration purposes. In the actual implementation, this would be powered by AI analysis of your uploaded content.`,
-          timestamp: new Date(),
-          references: fileContext ? [`Page 1 of ${fileContext.name}`, `Section 2.1 of ${fileContext.name}`] : undefined
+          content: "Video chat functionality is not yet implemented. Please use PDF chat for now.",
+          timestamp: new Date()
         };
         
-        setMessages(prev => [...prev, aiMessage]);
-        setIsLoading(false);
-      }, 1500);
+        if (activeChatInfo) {
+          addMessage(activeChatInfo.id, aiMessage);
+        }
+      }
     } catch (error) {
-      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send message",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -106,32 +142,37 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
-    // Show toast notification
+    toast({
+      title: "Copied",
+      description: "Message copied to clipboard",
+    });
   };
 
   const rateMessage = (messageId: string, rating: "up" | "down") => {
-    // BACKEND INTEGRATION: Send rating to analytics endpoint
-    console.log(`Rated message ${messageId} as ${rating}`);
+    toast({
+      title: "Feedback Recorded",
+      description: `Thank you for your ${rating === 'up' ? 'positive' : 'negative'} feedback!`,
+    });
   };
 
   return (
     <div className="flex flex-col h-full">
       {/* Chat Messages */}
-      <Card className="flex-1 bg-bamboo-card border-bamboo-border">
-        <CardHeader className="pb-3">
+      <Card className="flex-1 bg-bamboo-card border-bamboo-border flex flex-col">
+        <CardHeader className="pb-3 flex-shrink-0">
           <CardTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-bamboo-pink" />
             Ask Bamboo
-            {fileContext && (
+            {activeChatInfo && (
               <span className="text-sm text-muted-foreground">
-                • {fileContext.name}
+                • {activeChatInfo.fileName}
               </span>
             )}
           </CardTitle>
         </CardHeader>
         <Separator />
-        <CardContent className="p-0">
-          <ScrollArea className="h-96 px-6 py-4">
+        <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+          <div className="flex-1 px-6 py-4 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Bot className="h-12 w-12 mx-auto mb-4 text-bamboo-pink" />
@@ -167,15 +208,30 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
                         <p className="text-sm leading-relaxed">{message.content}</p>
                       </div>
                       
-                      {message.references && (
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground font-medium">References:</p>
-                          {message.references.map((ref, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <ExternalLink className="h-3 w-3" />
-                              <span>{ref}</span>
-                            </div>
-                          ))}
+                      {message.contextData && message.contextData.length > 0 && (
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="h-4 w-4 text-bamboo-pink" />
+                            <p className="text-sm font-medium text-foreground">Retrieved Context ({message.contextData.length} sources):</p>
+                          </div>
+                          <div className="space-y-3">
+                            {message.contextData.map((ctx) => (
+                              <div key={ctx.id} className="bg-muted/30 border border-bamboo-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="bg-bamboo-pink/10 p-2 rounded-md flex-shrink-0">
+                                    <FileText className="h-4 w-4 text-bamboo-pink" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-foreground mb-1">{ctx.title}</p>
+                                    <p className="text-xs text-muted-foreground">Page {ctx.page}</p>
+                                  </div>
+                                </div>
+                                <div className="text-sm text-muted-foreground leading-relaxed pl-11">
+                                  "{ctx.preview}"
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                       
@@ -233,7 +289,7 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
               </div>
             )}
             <div ref={messagesEndRef} />
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
 
@@ -247,19 +303,19 @@ export const ChatInterface = ({ fileContext, fileType }: ChatInterfaceProps) => 
             onKeyPress={handleKeyPress}
             placeholder="Ask Bamboo anything..."
             className="flex-1 bg-background border-bamboo-border focus:border-bamboo-pink"
-            disabled={isLoading || !fileContext}
+            disabled={isLoading || (fileType === 'pdf' && !isFileReady)}
           />
           <Button
             onClick={sendMessage}
-            disabled={!inputValue.trim() || isLoading || !fileContext}
+            disabled={!inputValue.trim() || isLoading || (fileType === 'pdf' && !isFileReady)}
             className="bg-gradient-primary hover:opacity-90 text-white"
           >
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        {!fileContext && (
+        {fileType === 'pdf' && !isFileReady && (
           <p className="text-xs text-muted-foreground mt-2">
-            Upload a file first to start chatting
+            Upload a PDF file first to start chatting
           </p>
         )}
       </div>

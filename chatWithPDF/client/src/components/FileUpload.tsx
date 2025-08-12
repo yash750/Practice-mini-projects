@@ -3,25 +3,23 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Upload, FileText, Video, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// BACKEND INTEGRATION COMMENT:
-// This component will need to:
-// 1. Upload files to cloud storage (AWS S3, Google Cloud, etc.)
-// 2. Process uploaded files (PDF parsing, video transcription)
-// 3. Show upload progress with real progress bars
-// 4. Validate file types and sizes on backend
-// 5. Generate file previews/thumbnails
+import { apiService } from "../services/api";
+import { useToast } from "./ui/use-toast";
 
 interface FileUploadProps {
   type: "pdf" | "video";
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File | null, fileData?: any) => void;
   uploadedFile?: File | null;
   isProcessing?: boolean;
+  onUploadComplete?: () => void;
+  onClearFile?: () => void;
 }
 
-export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing }: FileUploadProps) => {
+export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing, onUploadComplete }: FileUploadProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const acceptedTypes = type === "pdf" ? ".pdf" : ".mp4,.avi,.mov,.wmv,.webm";
   const Icon = type === "pdf" ? FileText : Video;
@@ -44,7 +42,7 @@ export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing }: F
     if (files.length > 0) {
       const file = files[0];
       if (validateFile(file)) {
-        onFileUpload(file);
+        uploadFile(file);
       }
     }
   };
@@ -54,26 +52,72 @@ export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing }: F
     if (files && files.length > 0) {
       const file = files[0];
       if (validateFile(file)) {
-        onFileUpload(file);
+        uploadFile(file);
       }
     }
   };
 
+  const uploadFile = async (file: File) => {
+    setIsUploading(true);
+    try {
+      let response;
+      if (type === 'pdf') {
+        response = await apiService.uploadPDF(file);
+      } else {
+        response = await apiService.uploadVideo(file);
+      }
+      
+      // Pass file data to parent if available
+      if (response.fileData) {
+        onFileUpload(file, response.fileData);
+      } else {
+        onFileUpload(file);
+      }
+      
+      onUploadComplete?.();
+      
+      toast({
+        title: "Success",
+        description: response.message || `${type.toUpperCase()} file uploaded successfully!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Upload failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const validateFile = (file: File) => {
-    const maxSize = type === "pdf" ? 10 * 1024 * 1024 : 100 * 1024 * 1024; // 10MB for PDF, 100MB for video
+    const maxSize = type === "pdf" ? 10 * 1024 * 1024 : 100 * 1024 * 1024;
     
     if (file.size > maxSize) {
-      alert(`File size too large. Maximum size is ${maxSize / (1024 * 1024)}MB`);
+      toast({
+        title: "Error",
+        description: `File size too large. Maximum size is ${maxSize / (1024 * 1024)}MB`,
+        variant: "destructive",
+      });
       return false;
     }
     
     if (type === "pdf" && !file.type.includes("pdf")) {
-      alert("Please upload a PDF file");
+      toast({
+        title: "Error",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
       return false;
     }
     
     if (type === "video" && !file.type.includes("video")) {
-      alert("Please upload a video file");
+      toast({
+        title: "Error",
+        description: "Please upload a video file",
+        variant: "destructive",
+      });
       return false;
     }
     
@@ -81,11 +125,11 @@ export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing }: F
   };
 
   const clearFile = () => {
-    // BACKEND INTEGRATION: Also clear from server if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-    // Reset the uploaded file state in parent component
+    // Call parent to clear state
+    onFileUpload(null as any);
   };
 
   if (uploadedFile) {
@@ -106,10 +150,10 @@ export const FileUpload = ({ type, onFileUpload, uploadedFile, isProcessing }: F
             </div>
             
             <div className="flex items-center gap-2">
-              {isProcessing ? (
+              {isProcessing || isUploading ? (
                 <div className="flex items-center gap-2 text-bamboo-pink">
                   <div className="animate-spin h-4 w-4 border-2 border-bamboo-pink border-t-transparent rounded-full" />
-                  <span className="text-sm">Processing...</span>
+                  <span className="text-sm">{isUploading ? 'Uploading...' : 'Processing...'}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-green-500">

@@ -3,14 +3,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { User, Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
-
-// BACKEND INTEGRATION COMMENT:
-// This component will need to:
-// 1. Call registration API endpoint (POST /auth/register)
-// 2. Implement proper form validation (email format, password strength)
-// 3. Handle email verification flow if required
-// 4. Show success message and redirect to login or auto-login
-// 5. Handle validation errors from backend
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "./ui/use-toast";
 
 interface RegisterFormProps {
   onSuccess: () => void;
@@ -26,41 +20,46 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match!");
+      toast({
+        title: "Error",
+        description: "Passwords don't match!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
       return;
     }
     
     setIsLoading(true);
     
     try {
-      // BACKEND INTEGRATION: Replace with actual API call
-      // const response = await fetch('/api/auth/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     name: formData.name,
-      //     email: formData.email,
-      //     password: formData.password
-      //   })
-      // });
-      // const data = await response.json();
-      // if (data.success) {
-      //   onSuccess();
-      // }
-      
-      // Simulated registration for UI demo
-      setTimeout(() => {
-        console.log("Registration attempted with:", formData);
-        setIsLoading(false);
-        onSuccess();
-      }, 1000);
+      await register(formData.name, formData.email, formData.password);
+      toast({
+        title: "Success",
+        description: "Registration successful! Please check your email to verify your account.",
+      });
+      onSuccess();
     } catch (error) {
-      console.error("Registration error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Registration failed",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
     }
   };
